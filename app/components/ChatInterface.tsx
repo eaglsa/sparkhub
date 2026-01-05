@@ -73,8 +73,8 @@ export default function ChatInterface() {
                         >
                             <div
                                 className={`max-w-[85%] md:max-w-[70%] p-4 rounded-2xl text-lg leading-relaxed ${msg.role === "user"
-                                        ? "bg-[#1a1a1a] text-white rounded-tr-sm"
-                                        : "text-white rounded-tl-sm markdown-content"
+                                    ? "bg-[#1a1a1a] text-white rounded-tr-sm"
+                                    : "text-white rounded-tl-sm markdown-content"
                                     }`}
                             >
                                 {msg.role === "assistant" && (
