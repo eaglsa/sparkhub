@@ -9,116 +9,87 @@ const menuItems = [
     { title: "Home", href: "/" },
     { title: "About", href: "#" },
     { title: "Institutes", href: "#" },
-    { title: "YIP Discord", href: "https://discord.gg/placeholder", external: true }, // Placeholder link
+    { title: "YIP Discord", href: "https://discord.gg/ZnnpAyrtC", external: true },
     { title: "Contact", href: "#" },
 ];
 
-const menuVars = {
-    initial: {
-        scaleY: 0,
-    },
+const drawerVars = {
+    initial: { x: "100%" },
     animate: {
-        scaleY: 1,
-        transition: {
-            duration: 0.5,
-            ease: [0.12, 0, 0.39, 0],
-        },
+        x: 0,
+        transition: { type: "spring", stiffness: 300, damping: 30 } as any
     },
     exit: {
-        scaleY: 0,
-        transition: {
-            delay: 0.5,
-            duration: 0.5,
-            ease: [0.22, 1, 0.36, 1],
-        },
+        x: "100%",
+        transition: { type: "spring", stiffness: 300, damping: 30 } as any
     },
 };
 
-const containerVars = {
-    initial: {
-        transition: {
-            staggerChildren: 0.09,
-            staggerDirection: -1,
-        },
-    },
-    open: {
-        transition: {
-            delayChildren: 0.3,
-            staggerChildren: 0.09,
-            staggerDirection: 1,
-        },
-    },
+const overlayVars = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 }
 };
 
-const mobileLinkVars = {
-    initial: {
-        y: "30vh",
-        transition: {
-            duration: 0.5,
-            ease: [0.37, 0, 0.63, 1],
-        },
-    },
-    open: {
-        y: 0,
-        transition: {
-            ease: [0, 0.55, 0.45, 1],
-            duration: 0.7,
-        },
-    },
-};
-
-export default function StaggeredMenu() {
+export default function SideDrawer() {
     const [open, setOpen] = useState(false);
-
-    const toggleMenu = () => {
-        setOpen((prev) => !prev);
-    };
 
     return (
         <>
             <button
-                onClick={toggleMenu}
+                onClick={() => setOpen(true)}
                 className="z-[99] relative text-white hover:text-gray-300 transition-colors"
             >
-                {open ? <X size={28} /> : <Menu size={28} />}
+                <Menu size={28} />
             </button>
 
             <AnimatePresence>
                 {open && (
-                    <motion.div
-                        variants={menuVars}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        className="fixed left-0 top-0 w-full h-screen bg-black origin-top z-[98] flex flex-col justify-center items-center p-10"
-                    >
+                    <>
+                        {/* Backdrop */}
                         <motion.div
-                            variants={containerVars}
+                            variants={overlayVars}
                             initial="initial"
-                            animate="open"
-                            exit="initial"
-                            className="flex flex-col gap-6 text-center"
+                            animate="animate"
+                            exit="exit"
+                            onClick={() => setOpen(false)}
+                            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[98]"
+                        />
+
+                        {/* Side Drawer */}
+                        <motion.div
+                            variants={drawerVars}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            className="fixed right-0 top-0 h-screen w-80 bg-[#0a0a0a] border-l border-white/10 z-[99] flex flex-col p-8 shadow-2xl"
                         >
-                            {menuItems.map((link, index) => (
-                                <div key={index} className="overflow-hidden">
-                                    <motion.div
-                                        variants={mobileLinkVars}
-                                        className="text-4xl md:text-6xl font-bold text-white tracking-tighter"
+                            <div className="flex justify-end mb-12">
+                                <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white">
+                                    <X size={28} />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col gap-6">
+                                {menuItems.map((link, index) => (
+                                    <Link
+                                        key={index}
+                                        href={link.href}
+                                        onClick={() => setOpen(false)}
+                                        target={link.external ? "_blank" : "_self"}
+                                        className="text-2xl font-bold text-white hover:text-gray-300 transition-colors flex items-center justify-between group"
                                     >
-                                        <Link
-                                            href={link.href}
-                                            onClick={toggleMenu}
-                                            target={link.external ? "_blank" : "_self"}
-                                            className="hover:text-gray-400 transition-colors flex items-center justify-center gap-3"
-                                        >
-                                            {link.title}
-                                            {link.external && <ArrowRight size={24} className="-rotate-45" />}
-                                        </Link>
-                                    </motion.div>
-                                </div>
-                            ))}
+                                        {link.title}
+                                        {link.external && <ArrowRight size={20} className="-rotate-45 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                    </Link>
+                                ))}
+                            </div>
+
+                            <div className="mt-auto text-sm text-gray-600">
+                                © 2026 Sparkhub AI
+                            </div>
                         </motion.div>
-                    </motion.div>
+                    </>
                 )}
             </AnimatePresence>
         </>

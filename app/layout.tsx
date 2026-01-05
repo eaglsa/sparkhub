@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CareerPath AI | Guidance for Kerala",
-  description: "AI-powered career counseling for VHSE students.",
+  title: "Sparkhub AI | Future Ready Kerala",
+  description: "AI-powered aptitude counselor and career guidance for students.",
 };
 
 export default function RootLayout({

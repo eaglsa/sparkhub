@@ -4,10 +4,10 @@ export default function Hero({ onStart }: { onStart: () => void }) {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white mb-6">
-                CareerPath AI
+                Sparkhub AI
             </h1>
             <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mb-12">
-                Expert career guidance for Kerala students. Decode your future with AI.
+                Unlock your potential. Discover your perfect career path with our intelligent aptitude counselor.
             </p>
 
             <button
