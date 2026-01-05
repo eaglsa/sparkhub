@@ -20,14 +20,23 @@ export async function POST(req: Request) {
             // Advanced "Simulation" Logic to mimic AI behavior without keys
             if (messages.length <= 2) {
                 responseText = "I'm ready. I can help with **coding**, **math**, **career advice**, or just having a chat. \n\nTo start our aptitude check: *Do you find yourself more drawn to creative arts 🎨 or scientific experiments 🧪?*";
-            } else if (lastUserMessage.includes("code") || lastUserMessage.includes("program") || lastUserMessage.includes("react")) {
+            } else if (lastUserMessage.includes("code") || lastUserMessage.includes("program") || lastUserMessage.includes("react") || lastUserMessage.includes("software")) {
                 responseText = "That's a great skill! Here is a simple React component example:\n\n```jsx\nfunction Hello() {\n  return <h1>Hello World</h1>;\n}\n```\n\nProgramming suggests a strong logical aptitude. Would you consider Computer Science Engineering?";
-            } else if (lastUserMessage.includes("science") || lastUserMessage.includes("bio") || lastUserMessage.includes("chem")) {
+            } else if (lastUserMessage.includes("science") || lastUserMessage.includes("bio") || lastUserMessage.includes("chem") || lastUserMessage.includes("physics")) {
                 responseText = "**Science is fascinating.** \n\nIf you enjoy biology, options like *MBBS, BDS, or Biotechnology* are excellent. If you prefer physics/math, *Engineering or Architecture* might be better. Which subject do you score highest in?";
-            } else if (lastUserMessage.includes("art") || lastUserMessage.includes("draw") || lastUserMessage.includes("design")) {
+            } else if (lastUserMessage.includes("art") || lastUserMessage.includes("draw") || lastUserMessage.includes("design") || lastUserMessage.includes("write")) {
                 responseText = "Creativity is widely valued today! \n\n- **Graphic Design**\n- **Fine Arts**\n- **UI/UX Design**\n\nHave you considered the *Humanities* stream in Plus Two?";
+            } else if (lastUserMessage.includes("bye") || lastUserMessage.includes("goodbye") || lastUserMessage.includes("cya")) {
+                responseText = "Goodbye! Feel free to come back whenever you need career guidance. Best of luck! 👋";
+            } else if (lastUserMessage.includes("hi") || lastUserMessage.includes("hello") || lastUserMessage.includes("hey")) {
+                responseText = "Hello again! How can I help you regarding your studies or career planning?";
+            } else if (lastUserMessage.includes("thank")) {
+                responseText = "You're welcome! Happy to help.";
+            } else if (lastUserMessage.includes("azure") || lastUserMessage.includes("key")) {
+                responseText = "To enable my full intelligence, please add `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` to your environment variables.";
             } else {
-                responseText = "I see. I can answer **any** question you have. Try asking me about *specific colleges in Kerala* or *how to start learning Python*. \n\n(Note: Connect Azure keys to unlock my full brain!)";
+                // Dynamic fallback that repeats user input slightly to feel less static
+                responseText = `That's interesting regarding "${lastUserMessage}". \n\nSince I'm currently in **Offline Demo Mode**, I can only answer specifically about *Science, Commerce, Arts, or specific career paths*. \n\n*Please add Azure Keys to unlock my full conversational brain!*`;
             }
 
             return NextResponse.json({
