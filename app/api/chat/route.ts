@@ -35,19 +35,43 @@ export async function POST(req: Request) {
             });
         }
 
+        // Check for Search keys (Optional but recommended for RAG)
+        const searchEndpoint = process.env.AZURE_SEARCH_ENDPOINT;
+        const searchKey = process.env.AZURE_SEARCH_KEY;
+        const searchIndex = "career-paths"; // Default index name
+
         const client = new AzureOpenAI({ endpoint, apiKey, deployment, apiVersion: "2024-05-01-preview" });
 
         // "Gemini-Class" System Prompt
         const systemPrompt = `You are Sparkbot, an advanced, friendly, and highly intelligent AI assistant by SparkHub. 
     
     Guidelines:
-    1. **Identity**: You are helpful, kind, and smart. You are NOT Grok or ChatGPT. You are Sparkbot.
+    1. **Identity**: You are helpful, kind, and smart. You are Sparkbot.
     2. **Capabilities**: You can answer ANY question (coding, math, history, general knowledge).
-    3. **Aptitude Focus**: While you are a general assistant, you should gently steer the conversation towards career guidance if the user seems unsure about their future.
-    4. **Tone**: Professional yet approachable. Use Emoji sparingly.
-    5. **Formatting**: Use Markdown freely. Use **bold** for emphasis, *italics* for nuance, and \`code blocks\` for technical content.
+    3. **RAG/Data**: If you have access to retrieved documents (from Azure Search), USE them to answer specific questions about colleges, courses, or SparkHub data.
+    4. **Aptitude Focus**: While you are a general assistant, you should gently steer the conversation towards career guidance if the user seems unsure about their future.
+    5. **Tone**: Professional yet approachable. Use Emoji sparingly.
+    6. **Formatting**: Use Markdown freely. Use **bold** for emphasis, *italics* for nuance, and \`code blocks\` for technical content.
     
     Current Goal: Assess the user's aptitude and interests to recommend a career path, but answer all their side questions fully first.`;
+
+        // Configure Data Sources (RAG) if keys are present
+        const extraBody: any = {};
+        if (searchEndpoint && searchKey) {
+            extraBody.data_sources = [
+                {
+                    type: "azure_search",
+                    parameters: {
+                        endpoint: searchEndpoint,
+                        index_name: searchIndex,
+                        authentication: {
+                            type: "api_key",
+                            key: searchKey,
+                        },
+                    },
+                },
+            ];
+        }
 
         const completion = await client.chat.completions.create({
             messages: [
@@ -55,6 +79,7 @@ export async function POST(req: Request) {
                 ...messages
             ],
             model: deployment,
+            ...extraBody, // Inject RAG configuration
         });
 
         return NextResponse.json({ message: completion.choices[0].message.content });
