@@ -95,6 +95,7 @@ export default function ChatInterface() {
                     ))}
                     {isTyping && (
                         <motion.div
+                            key="typing"
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="flex w-full justify-start"
@@ -106,8 +107,8 @@ export default function ChatInterface() {
                             </div>
                         </motion.div>
                     )}
-                    <div ref={messagesEndRef} />
                 </AnimatePresence>
+                <div ref={messagesEndRef} />
             </div>
 
             <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black via-black to-transparent">
