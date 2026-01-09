@@ -1,100 +1,176 @@
-import { NextResponse } from 'next/server';
-import { AzureOpenAI } from 'openai';
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { OpenAI } from "openai";
+import { CosmosClient } from "@azure/cosmos";
+import { SearchClient, AzureKeyCredential } from "@azure/search-documents";
+
+// Helper to get clients lazily
+function getClients() {
+    // 1. Groq / OpenAI
+    const apiKey = process.env.GROQ_API_KEY || "";
+    // Check for xAI prefix to help user or auto-fallback
+    const baseURL = apiKey.startsWith("xai-")
+        ? "https://api.x.ai/v1"
+        : "https://api.groq.com/openai/v1";
+
+    const groq = new OpenAI({
+        baseURL,
+        apiKey,
+    });
+
+    // 2. Azure Search
+    let searchClient = null;
+    const searchEndpoint = process.env.AZURE_SEARCH_ENDPOINT;
+    const searchKey = process.env.AZURE_SEARCH_ADMIN_KEY;
+    if (searchEndpoint && searchKey) {
+        try {
+            searchClient = new SearchClient(
+                searchEndpoint,
+                "vhse-career-index",
+                new AzureKeyCredential(searchKey)
+            );
+        } catch (e) {
+            console.error("Failed to init Search Client:", e);
+        }
+    }
+
+    // 3. Cosmos DB
+    let cosmosClient = null;
+    const connectionString = process.env.COSMOS_CONNECTION_STRING;
+
+    // Debug logging (masked)
+    console.log("Config Check:");
+    console.log("- Groq Key:", apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : "MISSING");
+    console.log("- Base URL:", baseURL);
+    console.log("- Search EP:", searchEndpoint);
+
+    // Combined logic: Prefer Connection String, fallback to legacy
+    if (connectionString && connectionString.includes("AccountKey=")) {
+        try {
+            cosmosClient = new CosmosClient(connectionString);
+        } catch (e) {
+            console.error("Invalid Cosmos Connection String:", e);
+        }
+    } else {
+        const endpoint = process.env.COSMOS_DB_ENDPOINT;
+        const key = process.env.COSMOS_DB_KEY;
+        if (endpoint && key) {
+            try {
+                cosmosClient = new CosmosClient({ endpoint, key });
+            } catch (e) {
+                console.error("Invalid Cosmos Endpoint/Key:", e);
+            }
+        }
+    }
+
+    return { groq, searchClient, cosmosClient };
+}
 
 export async function POST(req: Request) {
     try {
+        const { userId } = await auth();
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { messages } = await req.json();
+        const lastMessage = messages[messages.length - 1];
+        const userQuery = lastMessage.content;
 
-        const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-        const apiKey = process.env.AZURE_OPENAI_API_KEY;
-        const deployment = "gpt-35-turbo";
+        // Init clients inside request to capture config errors safely
+        const { groq, searchClient, cosmosClient } = getClients();
 
-        // Graceful fallback if keys aren't set (Simulation Mode)
-        if (!endpoint || !apiKey) {
-            console.warn("Missing Azure credentials. Returning simulated response.");
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Thinking time
+        // 1. Retrieve Context from Azure AI Search
+        console.log(`Searching for: ${userQuery}`);
+        let searchContext = "";
 
-            const lastUserMessage = messages[messages.length - 1].content.toLowerCase();
-            let responseText = "";
+        interface CareerDoc {
+            title: string;
+            content: string;
+            url?: string;
+        }
 
-            // Advanced "Simulation" Logic to mimic AI behavior without keys
-            if (messages.length <= 2) {
-                responseText = "I'm ready. I can help with **coding**, **math**, **career advice**, or just having a chat. \n\nTo start our aptitude check: *Do you find yourself more drawn to creative arts 🎨 or scientific experiments 🧪?*";
-            } else if (lastUserMessage.includes("code") || lastUserMessage.includes("program") || lastUserMessage.includes("react") || lastUserMessage.includes("software")) {
-                responseText = "That's a great skill! Here is a simple React component example:\n\n```jsx\nfunction Hello() {\n  return <h1>Hello World</h1>;\n}\n```\n\nProgramming suggests a strong logical aptitude. Would you consider Computer Science Engineering?";
-            } else if (lastUserMessage.includes("science") || lastUserMessage.includes("bio") || lastUserMessage.includes("chem") || lastUserMessage.includes("physics")) {
-                responseText = "**Science is fascinating.** \n\nIf you enjoy biology, options like *MBBS, BDS, or Biotechnology* are excellent. If you prefer physics/math, *Engineering or Architecture* might be better. Which subject do you score highest in?";
-            } else if (lastUserMessage.includes("art") || lastUserMessage.includes("draw") || lastUserMessage.includes("design") || lastUserMessage.includes("write")) {
-                responseText = "Creativity is widely valued today! \n\n- **Graphic Design**\n- **Fine Arts**\n- **UI/UX Design**\n\nHave you considered the *Humanities* stream in Plus Two?";
-            } else if (lastUserMessage.includes("bye") || lastUserMessage.includes("goodbye") || lastUserMessage.includes("cya")) {
-                responseText = "Goodbye! Feel free to come back whenever you need career guidance. Best of luck! 👋";
-            } else if (lastUserMessage.includes("hi") || lastUserMessage.includes("hello") || lastUserMessage.includes("hey")) {
-                responseText = "Hello again! How can I help you regarding your studies or career planning?";
-            } else if (lastUserMessage.includes("thank")) {
-                responseText = "You're welcome! Happy to help.";
-            } else if (lastUserMessage.includes("azure") || lastUserMessage.includes("key")) {
-                responseText = "To enable my full intelligence, please add `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` to your environment variables.";
-            } else {
-                // Dynamic fallback that repeats user input slightly to feel less static
-                responseText = `That's interesting regarding "${lastUserMessage}". \n\nSince I'm currently in **Offline Demo Mode**, I can only answer specifically about *Science, Commerce, Arts, or specific career paths*. \n\n*Please add Azure Keys to unlock my full conversational brain!*`;
+        if (searchClient) {
+            try {
+                const searchResults = await searchClient.search(userQuery, {
+                    top: 3,
+                    select: ["content", "title", "url"]
+                });
+
+                for await (const result of searchResults.results) {
+                    const doc = result.document as unknown as CareerDoc;
+                    const title = doc.title || "No Title";
+                    const content = doc.content || "";
+                    searchContext += `Title: ${title}\nContent: ${content}\n\n`;
+                }
+            } catch (searchError) {
+                console.error("Azure Search Error:", searchError);
+                searchContext = "Context retrieval failed (Search Error).";
             }
-
-            return NextResponse.json({
-                message: responseText
-            });
+        } else {
+            console.warn("Search Client not initialized (Missing Config).");
+            searchContext = "Context retrieval unavailable (Configuration Missing).";
         }
 
-        // Check for Search keys (Optional but recommended for RAG)
-        const searchEndpoint = process.env.AZURE_SEARCH_ENDPOINT;
-        const searchKey = process.env.AZURE_SEARCH_KEY;
-        const searchIndex = "career-paths"; // Default index name
+        // 2. Construct System Prompt with Context
+        const systemPrompt = `You are Sparkbot, a helpful career guidance counselor for students in Kerala.
+        
+Context from Knowledge Base:
+${searchContext}
 
-        const client = new AzureOpenAI({ endpoint, apiKey, deployment, apiVersion: "2024-05-01-preview" });
+Use the above context to answer the user's question. If the answer is not in the context, use your general knowledge but mention that it's outside the specific VHSE database. Keep answers relevant to Kerala/Indian education context when possible.`;
 
-        // "Gemini-Class" System Prompt
-        const systemPrompt = `You are Sparkbot, an advanced, friendly, and highly intelligent AI assistant by SparkHub. 
-    
-    Guidelines:
-    1. **Identity**: You are helpful, kind, and smart. You are Sparkbot.
-    2. **Capabilities**: You can answer ANY question (coding, math, history, general knowledge).
-    3. **RAG/Data**: If you have access to retrieved documents (from Azure Search), USE them to answer specific questions about colleges, courses, or SparkHub data.
-    4. **Aptitude Focus**: While you are a general assistant, you should gently steer the conversation towards career guidance if the user seems unsure about their future.
-    5. **Tone**: Professional yet approachable. Use Emoji sparingly.
-    6. **Formatting**: Use Markdown freely. Use **bold** for emphasis, *italics* for nuance, and \`code blocks\` for technical content.
-    
-    Current Goal: Assess the user's aptitude and interests to recommend a career path, but answer all their side questions fully first.`;
+        // Clean messages for Groq/Llama
+        // Remove 'id', 'revisionId' or other Clerk/DB artifacts that might be in the request object
+        // Only keep 'role' and 'content' as strictly expected by OpenAI/Groq API
+        const cleanMessages = messages.map((m: any) => ({
+            role: m.role,
+            content: m.content
+        }));
 
-        // Configure Data Sources (RAG) if keys are present
-        const extraBody: any = {};
-        if (searchEndpoint && searchKey) {
-            extraBody.data_sources = [
-                {
-                    type: "azure_search",
-                    parameters: {
-                        endpoint: searchEndpoint,
-                        index_name: searchIndex,
-                        authentication: {
-                            type: "api_key",
-                            key: searchKey,
-                        },
-                    },
-                },
-            ];
-        }
-
-        const completion = await client.chat.completions.create({
+        // 3. Generate Response
+        const response = await groq.chat.completions.create({
             messages: [
                 { role: "system", content: systemPrompt },
-                ...messages
+                ...cleanMessages
             ],
-            model: deployment,
-            ...extraBody, // Inject RAG configuration
+            // Use user preferred model or safe default
+            model: "llama-3.3-70b-versatile",
         });
 
-        return NextResponse.json({ message: completion.choices[0].message.content });
+        const aiMessageContent = response.choices[0].message.content;
+
+        // 4. Persist to Cosmos DB
+        if (cosmosClient) {
+            try {
+                const database = cosmosClient.database(process.env.COSMOS_DB_DATABASE || "SparkhubDB");
+                const container = database.container(process.env.COSMOS_DB_CONTAINER || "Conversations");
+
+                const record = {
+                    id: `${userId}-${Date.now()}`,
+                    userId: userId,
+                    userMessage: userQuery,
+                    aiResponse: aiMessageContent,
+                    searchContext: searchContext,
+                    timestamp: new Date().toISOString(),
+                    model: "llama-3.3-70b-versatile"
+                };
+
+                await container.items.create(record);
+            } catch (dbError) {
+                console.error("Cosmos DB Write Error:", dbError);
+            }
+        } else {
+            console.warn("Cosmos Client not initialized. Skipping persistence.");
+        }
+
+        return NextResponse.json({ message: aiMessageContent });
 
     } catch (error: any) {
-        console.error("Azure OpenAI Error:", error);
-        return NextResponse.json({ error: "Failed to generate response." }, { status: 500 });
+        console.error("API Error:", error);
+        return NextResponse.json(
+            { error: error.message || "Internal Server Error" },
+            { status: 500 }
+        );
     }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import Hero from "./components/Hero";
 import ChatInterface from "./components/ChatInterface";
 import StaggeredMenu from "./components/StaggeredMenu";
@@ -10,7 +10,6 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function Home() {
-  const [showChat, setShowChat] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col pt-16">
@@ -28,9 +27,18 @@ export default function Home() {
             <button className="hidden md:block text-sm font-medium text-gray-400 hover:text-white transition-colors">
               EN / ML
             </button>
-            <button onClick={() => setShowChat(false)} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
-              Reset
-            </button>
+
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="text-sm font-medium text-white bg-white/10 px-4 py-2 rounded-full hover:bg-white/20 transition-colors">
+                  Sign In
+                </button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+
             <div className="w-px h-6 bg-gray-800 mx-2 hidden md:block"></div>
             <StaggeredMenu />
           </div>
@@ -38,11 +46,7 @@ export default function Home() {
       </header>
 
       <main className="flex-1 flex flex-col justify-center w-full max-w-7xl mx-auto px-4">
-        {showChat ? (
-          <ChatInterface />
-        ) : (
-          <Hero onStart={() => setShowChat(true)} />
-        )}
+        <Hero />
       </main>
 
       <Footer />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function Hero({ onStart }: { onStart: () => void }) {
+export default function Hero() {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white mb-6">
@@ -10,13 +10,13 @@ export default function Hero({ onStart }: { onStart: () => void }) {
                 Unlock your potential. Discover your perfect career path with our intelligent aptitude counselor.
             </p>
 
-            <button
-                onClick={onStart}
+            <Link
+                href="/chat"
                 className="group relative inline-flex h-12 items-center justify-center overflow-hidden rounded-full bg-white px-8 font-medium text-black transition-all duration-300 hover:bg-gray-200 hover:w-56 w-48"
             >
                 <span className="mr-2">Start Chatting</span>
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">→</span>
-            </button>
+            </Link>
 
             <div className="mt-16 flex gap-8 text-sm text-gray-600">
                 <div>Based on VHSE SparkHub</div>
